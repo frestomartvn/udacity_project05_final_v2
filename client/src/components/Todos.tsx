@@ -12,6 +12,7 @@ import {
   Input,
   Image,
   Loader,
+  Radio,
   Table,
   Pagination
 } from 'semantic-ui-react'
@@ -21,6 +22,7 @@ import {
   deleteTodo,
   getTodos,
   getTodosWithPagination,
+  getSearchTodos,
   patchTodo
 } from '../api/todos-api'
 import Auth from '../auth/Auth'
@@ -38,6 +40,9 @@ interface TodosState {
   todosPagination: Todo[]
   nextKey: string
   newTodoName: string
+  search: string
+  isData: boolean
+  isCheckedSearch: boolean
   loadingTodos: boolean
 }
 
@@ -47,11 +52,22 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
     todosPagination: [],
     nextKey: '',
     newTodoName: '',
+    search: '',
+    isData: true,
+    isCheckedSearch: true,
     loadingTodos: true
   }
 
   handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     this.setState({ newTodoName: event.target.value })
+  }
+
+  handelRadioChange = (event: React.FormEvent<HTMLInputElement>, data: any) => {
+    this.setState({ isCheckedSearch: data.checked })
+  }
+
+  handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    this.setState({ search: event.target.value })
   }
 
   onEditButtonClick = (todoId: string) => {
@@ -75,6 +91,30 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
     } catch {
       alert('Todo creation failed')
     }
+  }
+
+  onTodoSearch = async () => {
+    if(this.state.search === "") {
+      await this.componentDidMount()
+      return;
+    }
+
+    const searchItems = await getSearchTodos(this.props.auth.getIdToken(), this.state.search)
+
+    if(searchItems.length > 0) {
+      this.setState({
+        isData: true,
+      })
+    } else {
+      this.setState({
+        isData: false,
+      })
+    }
+
+    this.setState({
+      todos: [...searchItems],
+      todosPagination: [...searchItems],
+    })
   }
 
   onTodoDelete = async (todoId: string) => {
@@ -134,6 +174,17 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
         this.props.auth.getIdToken(),
         null
       )
+
+      if(todos.length > 0) {
+        this.setState({
+          isData: true,
+        })
+      } else {
+        this.setState({
+          isData: false,
+        })
+      }
+
       const { items, nextKey } = todosWithPagination
       this.setState({
         todos,
@@ -149,9 +200,22 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
   render() {
     return (
       <div>
-        <Header as="h1">TODOs</Header>
+        <Grid>
+          <Grid.Column floated='left' width={8}>
+            <Header as="h1">TODOs</Header>
+          </Grid.Column>
+          <Grid.Column floated='right' width={3}>
+            <Radio label='Search' floated='right' toggle checked={this.state.isCheckedSearch} onChange={this.handelRadioChange} />
+          </Grid.Column>
+        </Grid>
 
         {this.renderCreateTodoInput()}
+
+        { 
+          (this.state.isCheckedSearch &&
+          this.renderSearchTodoInput()
+          )
+        }
 
         {this.renderTodos()}
       </div>
@@ -174,6 +238,31 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
             actionPosition="left"
             placeholder="To change the world..."
             onChange={this.handleNameChange}
+          />
+        </Grid.Column>
+        <Grid.Column width={16}>
+          <Divider />
+        </Grid.Column>
+      </Grid.Row>
+    )
+  }
+
+  renderSearchTodoInput() {
+    return (
+      <Grid.Row>
+        <Grid.Column width={16}>
+          <Input
+            action={{
+              color: 'purple',
+              labelPosition: 'left',
+              icon: 'search',
+              content: 'Search',
+              onClick: this.onTodoSearch
+            }}
+            fluid
+            actionPosition="left"
+            placeholder="Search todos by name..."
+            onChange={this.handleSearchChange}
           />
         </Grid.Column>
         <Grid.Column width={16}>
@@ -218,7 +307,7 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
         </Table.Header>
 
         <Table.Body>
-          {this.state.todosPagination.length > 0 &&
+          {(this.state.todosPagination.length > 0 && this.state.isData) &&
             this.state.todosPagination.map((todo, pos) => {
               return (
                 <Table.Row key={todo.createdAt}>

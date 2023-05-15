@@ -15,6 +15,18 @@ export async function getTodos(idToken: string): Promise<Todo[]> {
   return response.data.items
 }
 
+export async function getSearchTodos(idToken: string, query: string): Promise<Todo[]> {
+  const response = await Axios.post(`${apiEndpoint}/todos/search`,
+  JSON.stringify({ 'search': query }),
+  {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`
+    }
+  })
+  return response.data.items
+}
+
 export async function getTodosWithPagination(
   idToken: string,
   nextKey: any
